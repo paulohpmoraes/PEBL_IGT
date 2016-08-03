@@ -67,30 +67,49 @@
  ## that the "hint" about staying away from the worst decks is critical to
  ## obtaining above-chance performance in the IGT.
 
+
 define Start(lPar)
 {
 
-  parpairs <- [["numtrials",100],
-                  ["DelayBetweenTrials",500],
-		  ["UseMouse",1],  ##Should we use the mouse or the keyboard?
-		  ["shuffledecks",0], ##whether decks should be shuffled default is off
-		  ["startvalue",2000],
-		  ["rewarddelay",2500],
-		  ["penaltydelay",2500],
-		  ["playsounds",1]
-                 ]
+  trigger  <- ["1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"]
 
+  parpairs <- [["numtrials",100],
+               ["DelayBetweenTrials",500],
+               ["UseMouse",1],     ## Should we use the mouse or the keyboard?
+               ["shuffledecks",0], ## Whether decks should be shuffled default is off
+               ["startvalue",2000],
+               ["rewarddelay",2500],
+               ["penaltydelay",2500],
+               ["playsounds",1],
+               ["blocksize",0],    ## Number of trials per block, if 0 no block division
+               ["blockdelay",10],  ## Delay in seconds between blocks
+               ["trialtrigger",0], ## Trigger number sent on each trial, if 0 no triggers sent
+               ["blocktrigger",0], ## Trigger number sent on each block, if 0 no triggers sent
+               ["com",1]           ## Com port used to send trigger
+                ]
 
   gParams <- CreateParameters(parpairs,gParamFile)
-
 
   ## Define number of trials.
   numtrials <- gParams.numtrials
 
-
   ## Specify whether the mouse or keyboard should be used to respond.
   gUseMouse <- gParams.usemouse
+  
+  ## Number of trials per block, if 0 no block division.
+  gBlockSize <- gParams.blocksize
 
+  ## Delay in seconds between blocks.
+  gBlockDelay <- gParams.blockdelay
+
+  ## Trigger number sent on each trial, if 0 no triggers sent. 
+  gTrialTrigger <- gParams.trialtrigger
+  
+  ## Trigger number sent on each block, if 0 no triggers sent,
+  gBlockTrigger <- gParams.blocktrigger
+  
+  ## Com port used to send trigger.
+  gComPort <- gParams.com - 1
 
   if(gUseMouse)
   {
@@ -141,11 +160,38 @@ define Start(lPar)
 #  gFileOut <- FileOpenWrite("Log IGT ID-" + gSubNum + ".txt")
 #  FilePrint(gFileOut, "Subject Trial Deck Win Lose Net Score Borrow Time RT")
   ## results are stored in tmpresults.dat
-  gFileOut <- GetNewDataFile(gSubNum,gWin,"igtlog","csv",
+  gFileOut   <- GetNewDataFile(gSubNum,gWin,"igtlog","csv",
      "subNum,version,trialnum,chosendeck,win,lose,net,totalscore,borrow,time,rt")
 
+  gReportOut <- GetNewDataFile(gSubNum,gWin,"igt-report","txt","")
+  FilePrint(gReportOut,"PEBL Bechara's Gambling Task")
+  FilePrint(gReportOut,"Copyright (c) 2006-2011 Shane T. Mueller")
+  FilePrint(gReportOut,"Modified by Peter Bull (2012).")
+  FilePrint(gReportOut,"This task is not officially endorsed by A. Bechara, A. Damasio, or any other researchers or organizations affiliated with the 'Iowa' gambling task.")
+  FilePrint(gReportOut,"http://pebl.sourceforge.net/")
+  FilePrint(gReportOut,"---")
+  FilePrint(gReportOut,"Subject number: "+gSubNum)
+  FilePrint(gReportOut,"PEBL version: "+GetPEBLVersion())
+  FilePrint(gReportOut,"Time stamp: "+TimeStamp())
+  FilePrint(gReportOut,"System type: "+GetSystemType())
+  FilePrint(gReportOut,"Screen resolution: "+gVideoWidth+" x "+gVideoHeight)
+  FilePrint(gReportOut,"Number of trials: "+gParams.numtrials)
+  FilePrint(gReportOut,"Delay between trials: "+gParams.DelayBetweenTrials)
+  FilePrint(gReportOut,"Use mouse: "+gParams.UseMouse)
+  FilePrint(gReportOut,"Shuffle decks: "+gParams.shuffledecks)
+  FilePrint(gReportOut,"Start value: "+gParams.startvalue)
+  FilePrint(gReportOut,"Reward delay: "+gParams.rewarddelay)
+  FilePrint(gReportOut,"Penalty delay: "+gParams.penaltydelay)
+  FilePrint(gReportOut,"Play sounds: "+gParams.playsounds)
+  FilePrint(gReportOut,"Block size: "+gParams.blocksize)
+  FilePrint(gReportOut,"Block delay: "+gParams.blockdelay)
+  FilePrint(gReportOut,"Trial trigger: "+gParams.trialtrigger)
+  FilePrint(gReportOut,"Block trigger: "+gParams.blocktrigger)
+  FilePrint(gReportOut,"COM port: "+gParams.com)
+  FilePrint(gReportOut,"--- End of file")
+  FileClose(gReportOut)
 
-
+  
   #####################################################################
   ## Now, generate stimuli/conditions.
   ## Note: The flag -1 indicates a red deck but no penalty (Bechara
@@ -174,8 +220,8 @@ define Start(lPar)
 
   deck1Rew <- 100
   deck2Rew <- 100
-  deck3Rew <- 50
-  deck4Rew <- 50
+  deck3Rew <-  50
+  deck4Rew <-  50
 
   if(shuffleDecks)
   {
@@ -184,7 +230,11 @@ define Start(lPar)
     deck3Pen <- EpochShuffle(deck3Pen)
     deck4Pen <- EpochShuffle(deck4Pen)
   }
-
+  
+  if (gBlockTrigger + gTrialTrigger) {  # If blocktrigger or trialtrigger > 0, i.e. true
+    nirx <- OpenCOMPort(gComPort, 9600) # Open serial port
+  }
+ 
   #####################################################################
   ## Begin presenting and collecting data.
   #####################################################################
@@ -288,7 +338,7 @@ define Start(lPar)
   AddObject(deck4img, gWin); Move(deck4img, gBaseX+450, gBaseY)
   
   ## Add the smiley face and sad face images to the window.
-  AddObject(gRewardImage, gWin); Move(gRewardImage, gVideoWidth/2-300, gVideoHeight/2-60); Hide(gRewardImage)
+  AddObject(gRewardImage,  gWin); Move(gRewardImage,  gVideoWidth/2-300, gVideoHeight/2-60); Hide(gRewardImage)
   AddObject(gPenaltyImage, gWin); Move(gPenaltyImage, gVideoWidth/2-300, gVideoHeight/2-60); Hide(gPenaltyImage)  
 
   ## Add the card faces (red or black) to the window.
@@ -342,9 +392,21 @@ define Start(lPar)
   trialnum <- 1
   while(trialnum <= numtrials)
   {
+
+    if(gBlockSize) {
+      if(Not Mod(trialnum-1,gBlockSize))
+      {
+        CountDownN(gWin,gBlockDelay,1000)
+        Draw()
+        if (gBlockTrigger) {
+          COMPortSendByte(nirx, Nth(trigger,gBlockTrigger)) # send trigger signal
+        }
+      }
+    }
+    
     time0 <- GetTime()
 
-	## Get a response from the subject (using mouse or keyboard).
+    ## Get a response from the subject (using mouse or keyboard).
     ## Modified to allow use of ABCD or other labels (e.g., A'B'C'D' or EFGH).
     if(gUseMouse)
     {
@@ -354,16 +416,20 @@ define Start(lPar)
       Draw()
       key <- WaitForListKeyPress(["1","2","3","4"])
       if(key == "1") {
-	    resp <- deck1label
+        resp <- deck1label
       } elseif(key == "2") {
-	    resp <- deck2label
+        resp <- deck2label
       } elseif(key == "3") {
         resp <- deck3label
       } elseif(key == "4") {
         resp <- deck4label
       }
     }
-
+    
+    if (gTrialTrigger) {
+      COMPortSendByte(nirx, Nth(trigger,gTrialTrigger)) # send trigger signal
+    }
+    
     time1 <- GetTime()
     rt <- time1 - time0
     Draw()
@@ -375,7 +441,7 @@ define Start(lPar)
       penalty <- First(deck1pen)
       if(penalty == -1) # The flag -1 indicates red card but no loss.
       {
-		penalty <- 0
+        penalty <- 0
         deckX <- deck1l
       } elseif(penalty == 0) {
         deckX <- deck1g
@@ -385,13 +451,13 @@ define Start(lPar)
       net <- reward - penalty
       ## Move card to back of deck. Specify deck image to hide.
       deck1pen <- Rotate(deck1pen, 1)
-	  deckXimg <- deck1img
+    deckXimg <- deck1img
     } elseif(resp == deck2label) {
       reward <- deck2rew
       penalty <- First(deck2pen)
       if(penalty == -1) # The flag -1 indicates red card but no loss.
       {
-		penalty <- 0
+        penalty <- 0
         deckX <- deck2l
       } elseif(penalty == 0) {
         deckX <- deck2g
@@ -407,7 +473,7 @@ define Start(lPar)
       penalty <- First(deck3pen)
       if(penalty == -1) # The flag -1 indicates red card but no loss.
       {
-		penalty <- 0
+        penalty <- 0
         deckX <- deck3l
       } elseif(penalty == 0) {
         deckX <- deck3g
@@ -423,7 +489,7 @@ define Start(lPar)
       penalty <- First(deck4pen)
       if(penalty == -1) # The flag -1 indicates red card but no loss.
       {
-		penalty <- 0
+        penalty <- 0
         deckX <- deck4l
       } elseif(penalty == 0) {
         deckX <- deck4g
@@ -433,19 +499,19 @@ define Start(lPar)
       net <- reward - penalty
       ## Move card to back of deck. Specify deck image to hide.
       deck4pen <- Rotate(deck4pen, 1)
-	  deckXimg <- deck4img
+      deckXimg <- deck4img
     }
 
     ## Specify the reward text (green).
     gFooter.text <- textreward + reward + "!"
     SetFont(gFooter, gCorrFont)
 
-	## Turn over a card from the chosen deck & display reward text.
-	Hide(deckXimg)
+    ## Turn over a card from the chosen deck & display reward text.
+    Hide(deckXimg)
     Show(deckX)
     Hide(gHeader)
     Show(gFooter)
-	Show(gRewardImage)
+    Show(gRewardImage)
     Draw()
     # gRewardSounds <- Shuffle(gRewardSounds)
     # PlayForeground(First(gRewardSounds))
@@ -457,12 +523,12 @@ define Start(lPar)
     Wait(gparams.rewarddelay)
 
     ## Display penalty, if imposed, in red text following reward.
-	if(penalty > 0)
-	{
-	  gFooter.text <- textpenalty + penalty + "!"
-	  SetFont(gFooter, gIncorrFont)
-	  Show(gFooter)
-	  Show(gPenaltyImage)
+    if(penalty > 0)
+    {
+      gFooter.text <- textpenalty + penalty + "!"
+      SetFont(gFooter, gIncorrFont)
+      Show(gFooter)
+      Show(gPenaltyImage)
       Draw()
       # gPenaltySounds <- Shuffle(gPenaltySounds)
       # PlayForeground(First(gPenaltySounds))
@@ -473,13 +539,13 @@ define Start(lPar)
       Wait(gParams.penaltydelay)
     }
 
-	## Calculate the new total and update display.
+    ## Calculate the new total and update display.
     ## If the total drops below zero, advance another loan.
     gTotal <- gTotal + net
-	while(gTotal < 0)
+    while(gTotal < 0)
     {
       gBorrow <- gBorrow + gLoan
-	  gTotal <- gTotal + gLoan
+      gTotal <- gTotal + gLoan
     }
     if(gDisplayCounter)
     {
@@ -490,17 +556,17 @@ define Start(lPar)
     }
 
     ## Update the bar graph.
-	RemoveComplex(earnings)
+    RemoveComplex(earnings)
     earnings <- MakeEarningsGraph(gTotal)
 
     ## Reset the window display for the next trial.
     if(trialnum < numtrials)
-	{
+    {
       Hide(deckX)
-	  Show(deckXimg)
+      Show(deckXimg)
       Hide(gFooter)
       Show(gHeader)
-	}
+    }
     Hide(gRewardImage)
     Hide(gPenaltyImage)
     Draw()
@@ -522,7 +588,7 @@ define Start(lPar)
 
   ## Close the log file.
   FileClose(gFileOut)
-	
+
   ## Show debriefing information.
   feed1 <- Nth(textlist, 14)
   feed2 <- Nth(textlist, 15)
@@ -629,9 +695,9 @@ define EpochShuffle(list)
 define MakeEarningsGraph(earnings)
 {
   ## Basic parameters for plotting the graph at the top of the screen.
-  scale <- 14
-  height <- 20
-  width  <- earnings / scale
+  scale   <- 14
+  height  <- 20
+  width   <- earnings / scale
   xcenter <- gVideoWidth/2 - 280
   ycenter <- gVideoHeight/2 - 240
 
@@ -716,3 +782,28 @@ define WaitForIt()
     WaitForAnyKeyPress()
   }
 } # End of function WaitForIt().
+
+#####################################################################
+## Countdown from n to 0 with w ms interval.
+#####################################################################
+
+define CountDownN(win,n,w)
+{
+  if(not IsWindow(win))
+   { 
+     SignalFatalError("CountDown(win) needs a window to be specified, not [" + win + "]")
+   }
+  bgcol <- win.BGCOLOR
+  rect <- Rectangle(gVideoWidth/2,gVideoHeight/2,gVideoWidth,gVideoHeight,bgcol,1)
+  AddObject(rect,win)  
+  label <- EasyLabel("",gVideoWidth/2,gVideoHeight/2,win,100)
+  labs <- Sequence(n,1,-1)
+  loop(i,labs)
+   {
+     label.text <- i
+     Draw()
+     Wait(w)
+   }
+  RemoveObject(rect,win)
+  RemoveObject(label,win)
+}
